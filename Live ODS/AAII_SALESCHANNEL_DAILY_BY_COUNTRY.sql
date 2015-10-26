@@ -74,7 +74,7 @@ PJS.SEGMENTID,PJS.DEPARTUREDATE,PJS.DEPARTURESTATION,PJS.ARRIVALSTATION,
 
 AR.ROLECODE,
 
-IL.CARRIERCODE,IL.Flightnumber,AG.ORGANIZATIONCODE,AG.LOCATIONCODE,
+isnull(carr_map.mappedcarrier ,il.CARRIERCODE) CARRIERCODE,IL.Flightnumber,AG.ORGANIZATIONCODE,AG.LOCATIONCODE,
 
 DS.COUNTRYCODE DEPARTURECOUNTRYCODE,
 
@@ -86,17 +86,17 @@ AC.NAME ARRIVALCOUNTRY,
 
 PJC.CURRENCYCODE,
 
-(CASE WHEN IL.CARRIERCODE IN ('AK','D7') THEN 'MYR'
+(CASE WHEN isnull(carr_map.mappedcarrier ,il.CARRIERCODE) IN ('AK','D7') THEN 'MYR'
 
-	  WHEN IL.CARRIERCODE IN ('FD','XJ') THEN 'THB'
+	  WHEN isnull(carr_map.mappedcarrier ,il.CARRIERCODE) IN ('FD','XJ') THEN 'THB'
 
-	  WHEN IL.CARRIERCODE = 'QZ' THEN 'IDR'
+	  WHEN isnull(carr_map.mappedcarrier ,il.CARRIERCODE) = 'QZ' THEN 'IDR'
 
-	  WHEN IL.CARRIERCODE = 'XT' THEN 'USD'
+	  WHEN isnull(carr_map.mappedcarrier ,il.CARRIERCODE) = 'XT' THEN 'USD'
 
-	  WHEN IL.CARRIERCODE IN ('PQ','Z2') THEN 'PHP'
+	  WHEN Iisnull(carr_map.mappedcarrier ,il.CARRIERCODE) IN ('PQ','Z2') THEN 'PHP'
 
-	  WHEN IL.CARRIERCODE = 'I5' THEN 'INR'
+	  WHEN isnull(carr_map.mappedcarrier ,il.CARRIERCODE) = 'I5' THEN 'INR'
 
 	  ELSE 'MYR' END) AOCCURRENCY,
 
@@ -222,6 +222,11 @@ ODS.COUNTRY AC
 ON
 
 ARS.COUNTRYCODE = AC.COUNTRYCODE
+
+LEFT JOIN 
+AAII_CARRIER_MAPPING carr_map
+on carr_map.carriercode = pjs.carriercode
+and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(pjs.flightnumber))
 
 where (DS.COUNTRYCODE = 'SG' or ARS.COUNTRYCODE = 'SG')
 or (DS.COUNTRYCODE = 'PH' or ARS.COUNTRYCODE = 'PH')
