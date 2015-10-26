@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [dbo].[AAII_SALESCHANNEL_MONTHLY]    Script Date: 10/26/2015 10:36:52 ******/
+/****** Object:  StoredProcedure [dbo].[AAII_SALESCHANNEL_MONTHLY]    Script Date: 10/22/2015 17:22:10 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -57,7 +57,7 @@ PJS.SEGMENTID,PJS.DEPARTUREDATE,PJS.DEPARTURESTATION,PJS.ARRIVALSTATION,PJS.JOUR
 
 AR.ROLECODE,
 
-IL.CARRIERCODE,
+isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) CARRIERCODE,
 
 AG.ORGANIZATIONCODE,AG.LOCATIONCODE,
 
@@ -71,17 +71,17 @@ AC.NAME ARRIVALCOUNTRY,
 
 PJC.CURRENCYCODE,
 
-(CASE WHEN IL.CARRIERCODE IN ('AK','D7') THEN 'MYR'
+(CASE WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('AK','D7') THEN 'MYR'
 
-	  WHEN IL.CARRIERCODE IN ('FD','XJ') THEN 'THB'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('FD','XJ') THEN 'THB'
 
-	  WHEN IL.CARRIERCODE = 'QZ' THEN 'IDR'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'QZ' THEN 'IDR'
 
-	  WHEN IL.CARRIERCODE = 'XT' THEN 'USD'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'XT' THEN 'USD'
 
-	  WHEN IL.CARRIERCODE IN ('PQ','Z2') THEN 'PHP'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('PQ','Z2') THEN 'PHP'
 
-	  WHEN IL.CARRIERCODE = 'I5' THEN 'INR'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'I5' THEN 'INR'
 
 	  ELSE 'MYR' END) AOCCURRENCY,
 
@@ -145,6 +145,11 @@ PJL.INVENTORYLEGID = IL.INVENTORYLEGID
 
 AND IL.STATUS <> 2
 AND IL.LID > 0
+
+LEFT JOIN 
+AAII_CARRIER_MAPPING carr_map
+on carr_map.carriercode = il.carriercode
+and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(il.flightnumber))
 
 JOIN
 
@@ -214,7 +219,7 @@ PJS.SEGMENTID,PJS.DEPARTUREDATE,PJS.DEPARTURESTATION,PJS.ARRIVALSTATION,PJS.JOUR
 
 AR.ROLECODE,
 
-IL.CARRIERCODE,
+isnull(carr_map.mappedcarrier ,IL.CARRIERCODE),
 
 AG.ORGANIZATIONCODE,AG.LOCATIONCODE,
 
@@ -228,17 +233,17 @@ AC.NAME,
 
 PJC.CURRENCYCODE,
 
-(CASE WHEN IL.CARRIERCODE IN ('AK','D7') THEN 'MYR'
+(CASE WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('AK','D7') THEN 'MYR'
 
-	  WHEN IL.CARRIERCODE IN ('FD','XJ') THEN 'THB'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('FD','XJ') THEN 'THB'
 
-	  WHEN IL.CARRIERCODE = 'QZ' THEN 'IDR'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'QZ' THEN 'IDR'
 
-	  WHEN IL.CARRIERCODE = 'XT' THEN 'USD'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'XT' THEN 'USD'
 
-	  WHEN IL.CARRIERCODE IN ('PQ','Z2') THEN 'PHP'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('PQ','Z2') THEN 'PHP'
 
-	  WHEN IL.CARRIERCODE = 'I5' THEN 'INR'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'I5' THEN 'INR'
 
 	  ELSE 'MYR' END)
 
@@ -264,9 +269,9 @@ INTO #PASSENGERPOS
 
 FROM
 
-(SELECT * FROM ODS.BOOKING
+(SELECT * FROM ODS.BOOKING where bookingid in (select distinct bookingid from #PASSENGERS))BK
 
-WHERE BOOKINGDATE >= @dateStart AND BOOKINGDATE < @dateEnd AND STATUS IN (2,3)) BK
+--WHERE BOOKINGDATE >= @dateStart AND BOOKINGDATE < @dateEnd AND STATUS IN (2,3)) BK
 
 JOIN
 

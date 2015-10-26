@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [wb].[SAT_usp_AA_Update_RR_AAX_YoY_RoutePerformance]    Script Date: 10/26/2015 10:20:07 ******/
+/****** Object:  StoredProcedure [wb].[SAT_usp_AA_Update_RR_AAX_YoY_RoutePerformance]    Script Date: 10/22/2015 16:05:25 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -93,6 +93,10 @@ BEGIN
 	--newly added
 	into Temp_AAX_Weekly_Route_BaseRevRM
 	from
+		(
+		select t.PassengerID,t.SegmentID,isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode,t.FlightNumber,t.YEAR,t.MONTH,t.weeknumber,
+			   t.DepartureDate,t.Route,t.Cabin,t.createddate
+		 from
 		(select PassengerID, SegmentID, CarrierCode, FlightNumber, 
 		YEAR(DepartureDate) as Year, DATENAME(MM,DepartureDate) as Month, DATENAME(Week,DepartureDate) as WeekNumber,
 		DepartureDate, DepartureStation+ArrivalStation as Route,
@@ -104,7 +108,13 @@ BEGIN
 		and DepartureDate >= @departureStart
 		and DepartureDate <= @departureEnd
 		and CarrierCode in ('D7')
-		and FlightNumber not in ('2994','2995','2996','2997','2998','2999'))A
+		and FlightNumber not in ('2994','2995','2996','2997','2998','2999')) t
+		LEFT JOIN 
+		AAII_CARRIER_MAPPING carr_map
+		on carr_map.carriercode = t.carriercode
+		and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+		
+		)A
 	left join
 		(select 
 		PassengerID, SegmentID, CurrencyCode
@@ -248,6 +258,10 @@ BEGIN
 	--newly added
 	into Temp_AAX_Weekly_Route_Y1_BaseRevRM
 	from
+	    (
+	    select  t.PassengerID, t.SegmentID, isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode, t.FlightNumber,
+	            t.Year,t.Month,t.WeekNumber,t.DepartureDate,t.Route,
+	            t.Cabin,t.createddate from 
 		(select PassengerID, SegmentID, CarrierCode, FlightNumber, 
 		YEAR(DepartureDate) as Year, DATENAME(MM,DepartureDate) as Month, DATENAME(Week,DepartureDate) as WeekNumber,
 		DepartureDate, DepartureStation+ArrivalStation as Route,
@@ -258,7 +272,14 @@ BEGIN
 		and DepartureDate >= @departureStart_Y1
 		and DepartureDate <= @departureEnd_Y1
 		and CarrierCode in ('D7')
-		and FlightNumber not in ('2994','2995','2996','2997','2998','2999'))A
+		and FlightNumber not in ('2994','2995','2996','2997','2998','2999')
+		) t
+		LEFT JOIN 
+		AAII_CARRIER_MAPPING carr_map
+		on carr_map.carriercode = t.carriercode
+		and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+		
+		)A
 	left join
 		(select 
 		PassengerID, SegmentID, CurrencyCode
@@ -402,6 +423,11 @@ BEGIN
 	--newly added
 	into Temp_AAX_Weekly_Route_Y1M_BaseRevRM
 	from
+		(
+		
+		 select t.PassengerID, t.SegmentID, isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode, t.FlightNumber,
+	            t.Year,t.Month,t.WeekNumber,t.DepartureDate,t.Route,
+	            t.Cabin,t.createddate from
 		(select PassengerID, SegmentID, CarrierCode, FlightNumber, 
 		YEAR(DepartureDate) as Year, DATENAME(MM,DepartureDate) as Month, DATENAME(Week,DepartureDate) as WeekNumber,
 		DepartureDate, DepartureStation+ArrivalStation as Route,
@@ -412,7 +438,14 @@ BEGIN
 		and DepartureDate >= @departureStart_Y1
 		and DepartureDate <= @departureEnd_Y1
 		and CarrierCode in ('D7')
-		and FlightNumber not in ('2994','2995','2996','2997','2998','2999'))A
+		and FlightNumber not in ('2994','2995','2996','2997','2998','2999')
+		) t
+		LEFT JOIN 
+		AAII_CARRIER_MAPPING carr_map
+		on carr_map.carriercode = t.carriercode
+		and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+		
+		)A
 	left join
 		(select 
 		PassengerID, SegmentID, CurrencyCode
@@ -683,7 +716,7 @@ BEGIN
 		----* Capacity *----
 			
 	BEGIN TRY TRUNCATE TABLE #temp_Inventory DROP TABLE  #temp_Inventory  END TRY BEGIN CATCH END CATCH
-	select distinct DepartureDate, CarrierCode, FlightNumber, DepartureStation, ArrivalStation,
+	select distinct DepartureDate, isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) CarrierCode, il.FlightNumber, DepartureStation, ArrivalStation,
 	EquipmentType, EquipmentTypeSuffix, Cabin = 'Premium',
 	Capacity = case when EquipmentType = 320 and EquipmentTypeSuffix = 'A' then 0
 	when EquipmentType = 733 and EquipmentTypeSuffix = 'A' then 0
@@ -697,13 +730,19 @@ BEGIN
 	when EquipmentType = 332 and EquipmentTypeSuffix = 'A' then 24
 	Else '0' End
 	into #temp_Inventory
-	from ods.InventoryLeg
-	where DepartureDate between @departureStart_Y1 and @DepartureEnd
-	and Status <> 2
-	and Lid >0
-	and FlightNumber not in ('2994','2995','2996','2997','2998','2999')
+	from ods.InventoryLeg il
+	LEFT JOIN 
+	AAII_CARRIER_MAPPING carr_map
+	on carr_map.carriercode = il.carriercode
+	and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(il.flightnumber))
+
+	where il.DepartureDate between @departureStart_Y1 and @DepartureEnd
+	and il.Status <> 2
+	and il.Lid >0
+	and il.FlightNumber not in ('2994','2995','2996','2997','2998','2999')
+	
 	union
-	select distinct DepartureDate, CarrierCode, FlightNumber, DepartureStation, ArrivalStation,
+	select distinct DepartureDate, isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) CarrierCode, il.FlightNumber, DepartureStation, ArrivalStation,
 	EquipmentType, EquipmentTypeSuffix, Cabin = 'Economy',
 	Capacity = case when EquipmentType = 320 and EquipmentTypeSuffix = 'A' then Capacity
 	when EquipmentType = 733 and EquipmentTypeSuffix = 'A' then Capacity
@@ -716,11 +755,16 @@ BEGIN
 	when EquipmentType = 340 and EquipmentTypeSuffix = 'B' then (Capacity - 18)
 	when EquipmentType = 332 and EquipmentTypeSuffix = 'A' then (Capacity - 24)
 	Else '0' End
-	from ods.InventoryLeg
-	where DepartureDate between @departureStart_Y1 and @DepartureEnd
-	and Status <> 2
-	and Lid >0
-	and FlightNumber not in ('2994','2995','2996','2997','2998','2999')
+	from ods.InventoryLeg il
+	LEFT JOIN 
+	AAII_CARRIER_MAPPING carr_map
+	on carr_map.carriercode = il.carriercode
+	and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(il.flightnumber))
+	
+	where il.DepartureDate between @departureStart_Y1 and @DepartureEnd
+	and il.Status <> 2
+	and il.Lid >0
+	and il.FlightNumber not in ('2994','2995','2996','2997','2998','2999')
 
 
 	--select sum(Capacity) as Lid, CarrierCode, FlightNumber, DepartureStation+ArrivalStation as Route,

@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [dbo].[AAII_CASH_FLOW_MASTER]    Script Date: 10/26/2015 10:36:15 ******/
+/****** Object:  StoredProcedure [dbo].[AAII_CASH_FLOW_MASTER]    Script Date: 10/22/2015 12:23:33 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -55,13 +55,13 @@ SELECT BK.BOOKINGID,BK.BOOKINGDATE,BK.STATUS,
 BP.PASSENGERID,
 PJS.SEGMENTID,PJS.JOURNEYNUMBER,PJS.SEGMENTNUMBER,PJS.FAREJOURNEYTYPE,
 PJL.INVENTORYLEGID,
-IL.CARRIERCODE,IL.DEPARTUREDATE,
-(CASE WHEN IL.CARRIERCODE IN ('AK','D7') THEN 'MYR' 
-	  WHEN IL.CARRIERCODE IN ('FD','XJ') THEN 'THB'
-	  WHEN IL.CARRIERCODE = 'QZ' THEN 'IDR'
-	  WHEN IL.CARRIERCODE IN ('PQ','Z2') THEN 'PHP'
-	  WHEN IL.CARRIERCODE  = 'XT' THEN 'USD'
-	  WHEN IL.CARRIERCODE = 'I5' THEN 'INR'
+isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) CARRIERCODE,IL.DEPARTUREDATE,
+(CASE WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('AK','D7') THEN 'MYR' 
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('FD','XJ') THEN 'THB'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'QZ' THEN 'IDR'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('PQ','Z2') THEN 'PHP'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE)  = 'XT' THEN 'USD'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'I5' THEN 'INR'
 	  ELSE 'MYR' END) LOCAL_CURRENCYCODE,
 (
 case when IL.CARRIERCODE+ltrim(rtrim(IL.FlightNumber)) in ('D7170','D7171','D7172','D7173','D7176','D7177', 'D7192','D7193','D7196','D7197', 'AK70','AK71') 
@@ -94,7 +94,10 @@ PJL.INVENTORYLEGID = IL.INVENTORYLEGID
 AND IL.CARRIERCODE <> 'BF'
 AND IL.STATUS <> 2
 AND IL.LID > 0
-
+LEFT JOIN 
+AAII_CARRIER_MAPPING carr_map
+on carr_map.carriercode = il.carriercode
+and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(il.flightnumber))
 
 
 BEGIN TRY DROP TABLE #PAX END TRY BEGIN CATCH END CATCH

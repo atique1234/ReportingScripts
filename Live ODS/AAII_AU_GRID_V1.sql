@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [dbo].[AAII_AU_GRID_V1]    Script Date: 10/26/2015 10:18:27 ******/
+/****** Object:  StoredProcedure [dbo].[AAII_AU_GRID_V1]    Script Date: 10/22/2015 15:46:15 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -50,7 +50,7 @@ Select DISTINCT
 	Il.InventoryLegId,
 	IL.InventoryLegKey,
 	CP.CityPairGroup,
-	CONVERT (DATE, IL.DepartureDate, 110) DepartureDate,IL.CarrierCode,
+	CONVERT (DATE, IL.DepartureDate, 110) DepartureDate,isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) CarrierCode,
 	LTrim(RTrim(IL.FlightNumber)) As FlightNumber,
 	IL.DepartureStation,
 	IL.ArrivalStation,IL.OpSuffix,
@@ -69,6 +69,11 @@ Into
 	#Inventory
 From 
 	ods.InventoryLeg  IL 
+LEFT JOIN 
+AAII_CARRIER_MAPPING carr_map
+on carr_map.carriercode = il.carriercode
+and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(il.flightnumber))
+	
 Inner Join ods.InventoryLegCLass ILC 
 	ON IL.InventorylegId = ILC.InventorylegId 
 Inner Join dw.CityPair CP 
@@ -94,7 +99,7 @@ GROUP BY
 	IL.InventoryLegKey,
 	CP.CityPairGroup,
 	CONVERT (DATE, IL.DepartureDate, 110),
-	IL.CarrierCode,
+	isnull(carr_map.mappedcarrier ,IL.CARRIERCODE),
 	IL.FlightNumber,
 	IL.DepartureStation,
 	IL.ArrivalStation,

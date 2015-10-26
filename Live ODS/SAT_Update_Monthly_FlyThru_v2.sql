@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [wb].[SAT_Update_Monthly_FlyThru_v2]    Script Date: 10/26/2015 10:31:05 ******/
+/****** Object:  StoredProcedure [wb].[SAT_Update_Monthly_FlyThru_v2]    Script Date: 10/23/2015 12:44:37 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -70,13 +70,26 @@ BEGIN
 	
 	into #SeatsSold_FlyThru_BaseRevRM
 	from
+		(select t.PassengerID, t.SegmentID, t.SegmentSTD, 
+		isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode, 
+		t.FlightNumber, t.DepartureStation, t.ArrivalStation, t.CurrencyCode,
+		t.CreatedDate, t.JourneyNumber, t.SegmentNumber
+		
+		 from 
 		(select PassengerID, SegmentID, SegmentSTD, CarrierCode, /*new*/FlightNumber, DepartureStation, ArrivalStation, CurrencyCode,
-		CreatedDate, JourneyNumber, SegmentNumber
-		from vw_PassengerJourneySegment
-		where BookingStatus = 'HK'
-		and DepartureDate between @DepartureStart and @departureEnd
-		and DATEADD(HH,8,CreatedDate) < @PurchaseEnd
-		and FareJourneyType = 4) A
+			CreatedDate, JourneyNumber, SegmentNumber
+			from vw_PassengerJourneySegment
+			where BookingStatus = 'HK'
+			and DepartureDate between @DepartureStart and @departureEnd
+			and DATEADD(HH,8,CreatedDate) < @PurchaseEnd
+			and FareJourneyType = 4
+		) t
+		LEFT JOIN 
+		AAII_CARRIER_MAPPING carr_map
+		on carr_map.carriercode = t.carriercode
+		and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+		
+		) A
 	left join
 		(select PassengerID, SegmentID, --(ISNULL(ChargeAmount,0)*PositiveNegativeFlag) as Fare_Amt
 		case when Chargetype in ('1','2','3','7','16') then -1*ISNULL(ChargeAmount,0.00) else ISNULL(ChargeAmount,0.00) end as Fare_Amt

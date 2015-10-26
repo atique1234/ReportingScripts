@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [wb].[SAT_usp_AA_Report_Monthly_Nationality]    Script Date: 10/26/2015 10:27:40 ******/
+/****** Object:  StoredProcedure [wb].[SAT_usp_AA_Report_Monthly_Nationality]    Script Date: 10/23/2015 11:40:28 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -73,14 +73,18 @@ case when (Passport = 'OT' OR Passport IS null) then B.Nationality else Passport
 Nationality_DESC
 into #Passengers
 from 
-(select PassengerID, SegmentID, CarrierCode, JourneyNumber, International, DepartureDate, DATENAME(M,DepartureDate) as Month, 
-Year(DepartureDate) as Year,Datepart(MM,DepartureDate)as Month_1,
-(DepartureStation + ArrivalStation) as Route, DepartureStation, ArrivalStation, FareClassOfService 
-from vw_PassengerJourneySegment with (nolock)	
-where Bookingstatus = 'HK'
-and (DepartureDate >= @STARTDATE and DepartureDate < @MYDateUTC)--= @STARTDATE 
+(select t.PassengerID, t.SegmentID,  isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode, t.JourneyNumber, t.International, t.DepartureDate, DATENAME(M,t.DepartureDate) as Month, 
+Year(t.DepartureDate) as Year,Datepart(MM,t.DepartureDate)as Month_1,
+(t.DepartureStation + t.ArrivalStation) as Route, t.DepartureStation, t.ArrivalStation, t.FareClassOfService 
+from vw_PassengerJourneySegment t with (nolock)	
+LEFT JOIN 
+AAII_CARRIER_MAPPING carr_map
+on carr_map.carriercode = t.carriercode
+and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+where t.Bookingstatus = 'HK'
+and (t.DepartureDate >= @STARTDATE and t.DepartureDate < @MYDateUTC)--= @STARTDATE 
 --and (DepartureDate >= '2013-11-01' and DepartureDate < '2014-05-08')--= @STARTDATE 
-and CarrierCode in (select CarrierCode from ods.Carrier)
+and t.CarrierCode in (select CarrierCode from ods.Carrier)
 --and PassengerID = 167270425
 ) A 
 join ods.BookingPassenger B with (nolock)

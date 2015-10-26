@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [wb].[SAT_usp_AA_Update_RR_Inventory_Revenue_dataset_DW3_V2]    Script Date: 10/26/2015 10:40:45 ******/
+/****** Object:  StoredProcedure [wb].[SAT_usp_AA_Update_RR_Inventory_Revenue_dataset_DW3_V2]    Script Date: 10/23/2015 11:06:04 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -168,18 +168,29 @@ BEGIN
 	End
 	into #SeatsSold_BaseRevRM
 	from
+		(
+		select t.PassengerID, t.SegmentID, t.DepartureDate,t.DepartureYear,t.DepartureMonth,
+		       t.DepartureStation, t.ArrivalStation,isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode,
+		       t.FlightNumber, t.CreatedDate, t.Currencycode
+		 from
 		(select 
 		PassengerID, SegmentID, DepartureDate, DATENAME(YY,DepartureDate) as DepartureYear, DATENAME(MM,DepartureDate) as DepartureMonth,
 		DepartureStation, ArrivalStation, 
-		CASE WHEN LTRIM(RTRIM(CARRIERCODE))+LTRIM(RTRIM(FLIGHTNUMBER)) IN ('XT7531','XT7532','XT7533','XT7534','XT7681','XT7680','XT7693','XT7692','XT7683','XT7682','XT7620','XT7621','XT7526','XT7527','XT208','XT209','XT7518','XT7519','XT7681','XT7680','XT7693','XT7692','XT7683','XT7682','XT7620','XT7621','XT392','XT393',
-		'XT322','XT323','XT326','XT327','XT7628','XT7629','XT324','XT325','XT8297','XT8298') THEN 'QZ' ELSE CarrierCode END as CarrierCode, 
+		CarrierCode, 
 		FlightNumber, CreatedDate, Currencycode
 		from vw_PassengerJourneySegment with (nolock)
 		where BookingStatus = 'HK' 
 		and DATEADD(HH,8,CreatedDate) < @endDateUTC
 		and DepartureDate between @departureStart and @departureEnd
 		and CarrierCode in ('AK','FD','QZ','JW','PQ','D7','Z2','XJ','I5','XT')
-		and CarrierCode+' '+FlightNumber not in ('D7 2994','D7 2995','D7 2998','D7 2999','I5 9001')) A
+		) t
+		LEFT JOIN 
+		AAII_CARRIER_MAPPING carr_map
+		on carr_map.carriercode = t.carriercode
+		and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+		
+		Where isnull(carr_map.mappedcarrier ,t.CARRIERCODE)+' '+ltrim(rtrim(t.FlightNumber)) not in ('D7 2994','D7 2995','D7 2998','D7 2999','I5 9001')
+		) A
 	left join
 		(select PassengerID, SegmentID, --sum(ISNULL(ChargeAmount,0)*PositiveNegativeFlag) as Fare_Amt
 		sum(case when Chargetype in ('1','2','3','7','16') then -1*ISNULL(ChargeAmount,0.00) else ISNULL(ChargeAmount,0.00) end) as Fare_Amt
@@ -368,7 +379,7 @@ BEGIN
 	Update #SeatsSold_BaseRevRM
 	set ArrivalStation = 'KNO' where ArrivalStation = 'MES'
 	
-	delete from #SeatsSold_BaseRevRM where CarrierCode = 'FD' and FlightNumber in ('2496','2497') and DepartureDate < '2014-02-21'
+	delete from #SeatsSold_BaseRevRM where CarrierCode = 'FD' and ltrim(rtrim(FlightNumber)) in ('2496','2497') and DepartureDate < '2014-02-21'
 
 	
 
@@ -383,8 +394,7 @@ BEGIN
 	DATENAME(m,IL.DepartureDate) as DepartureMonth,
 	convert(varchar(4),datepart(YYYY,IL.DepartureDate)) as DepartureYear,
 	IL.DepartureDate,
-	CASE WHEN LTRIM(RTRIM(IL.CARRIERCODE))+LTRIM(RTRIM(IL.FLIGHTNUMBER)) IN ('XT7531','XT7532','XT7533','XT7534','XT7681','XT7680','XT7693','XT7692','XT7683','XT7682','XT7620','XT7621','XT7526','XT7527','XT208','XT209','XT7518','XT7519','XT7681','XT7680','XT7693','XT7692','XT7683','XT7682','XT7620','XT7621','XT392','XT393',
-	'XT322','XT323','XT326','XT327','XT7628','XT7629','XT324','XT325','XT8297','XT8298') THEN 'QZ' ELSE IL.CarrierCode END AS CarrierCode,
+	isnull(carr_map.mappedcarrier ,IL.CARRIERCODE)  CarrierCode,
 	IL.FlightNumber,
 	IL.OpSuffix, substring(citypairgroup,1,3) + SUBSTRING(CityPairGroup,5,3) as ODPAIR,
 	IL.DepartureStation,
@@ -393,17 +403,22 @@ BEGIN
 	IL.Capacity
 	Into #Inventorytemp
 	From ods.InventoryLeg  IL  with (nolock) 
+	LEFT JOIN 
+	AAII_CARRIER_MAPPING carr_map
+	on carr_map.carriercode = il.carriercode
+	and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(il.flightnumber))
+
 	left join dw.CityPair CP 
 		On IL.DepartureStation = CP.DepartureStation And IL.ArrivalStation = CP.ArrivalStation
 	Where IL.Status <> 2 and Lid > 0
 	AND IL.DepartureDate >=CONVERT(VARCHAR, @departureStart, 101)   
 	AND IL.DepartureDate<= CONVERT(VARCHAR, @departureEnd, 101)  
 	AND (IL.createdDate <= @endDateUTC   or IL.modifiedDate <= @endDateUTC)
-	and CarrierCode+' '+FlightNumber not in ('D7 2994','D7 2995','D7 2998','D7 2999','I5 9001')
+	and isnull(carr_map.mappedcarrier ,IL.CARRIERCODE)+' '+ltrim(rtrim(il.FlightNumber)) not in ('D7 2994','D7 2995','D7 2998','D7 2999','I5 9001')
 
 	--select top 100* from #Inventoryleg
 
-	delete from #Inventorytemp where CarrierCode = 'FD' and FlightNumber in ('2496','2497') and DepartureDate < '2014-02-21'
+	delete from #Inventorytemp where CarrierCode = 'FD' and ltrim(rtrim(FlightNumber)) in ('2496','2497') and DepartureDate < '2014-02-21'
 		
 	Update #Inventorytemp
 	set DEpartureStation = 'KNO' where DepartureStation = 'MES'

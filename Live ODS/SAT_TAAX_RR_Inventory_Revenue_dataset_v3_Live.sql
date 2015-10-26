@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [wb].[SAT_TAAX_RR_Inventory_Revenue_dataset_v3_Live]    Script Date: 10/26/2015 10:28:37 ******/
+/****** Object:  StoredProcedure [wb].[SAT_TAAX_RR_Inventory_Revenue_dataset_v3_Live]    Script Date: 10/23/2015 12:08:51 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -76,20 +76,30 @@ BEGIN
 	--SUM(SSRAmount/ISNULL(ConversionRate,1))
 	into SAT_PassengerID_TAAX_v3_BaseRevRM
 	from
+		(
+		select t.PassengerID, t.SegmentID, t.DepartureDate,t.Route,
+		isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode,
+		t.FlightNumber, t.FareClassOfService,t.Cabin,t.CreatedDate, t.CreatedAgentID
+		 from
 		(select 
-		PassengerID, SegmentID, DepartureDate, 
-		DepartureStation+ArrivalStation as Route, CarrierCode, FlightNumber, FareClassOfService,
-		Cabin = case when FareClassofService in ('C','D','G','J','G1') then 'Premium'
-		Else 'Economy' End,	CreatedDate, CreatedAgentID
-		from vw_PassengerJourneySegment
-		where BookingStatus = 'HK' 
-		and DATEADD(HH,8,CreatedDate) < @endDateUTC
-		--and DepartureDate between '2013-12-01' and @departureEnd
-		and DepartureDate between @departureStart and @departureEnd
-		and (CarrierCode = 'XJ' OR
-		ltrim(rtrim(CarrierCode))+ltrim(rtrim(FlightNumber)) = 'D7620' OR 
-		ltrim(rtrim(CarrierCode))+ltrim(rtrim(FlightNumber)) = 'D7621')
-		--and FlightNumber not in ('2994','2995','2996','2997','2998','2999')
+			PassengerID, SegmentID, DepartureDate, 
+			DepartureStation+ArrivalStation as Route, CarrierCode, FlightNumber, FareClassOfService,
+			Cabin = case when FareClassofService in ('C','D','G','J','G1') then 'Premium'
+			Else 'Economy' End,	CreatedDate, CreatedAgentID
+			from vw_PassengerJourneySegment
+			where BookingStatus = 'HK' 
+			and DATEADD(HH,8,CreatedDate) < @endDateUTC
+			--and DepartureDate between '2013-12-01' and @departureEnd
+			and DepartureDate between @departureStart and @departureEnd
+			
+		)t
+		LEFT JOIN 
+		AAII_CARRIER_MAPPING carr_map
+		on carr_map.carriercode = t.carriercode
+		and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+		Where  (isnull(carr_map.mappedcarrier ,t.CARRIERCODE) = 'XJ' OR
+			ltrim(rtrim(isnull(carr_map.mappedcarrier ,t.CARRIERCODE)))+ltrim(rtrim(t.FlightNumber)) = 'D7620' OR 
+			ltrim(rtrim(isnull(carr_map.mappedcarrier ,t.CARRIERCODE)))+ltrim(rtrim(t.FlightNumber)) = 'D7621')
 		) A
 	left join
 		(select PassengerID, SegmentID, (ISNULL(ChargeAmount,0)*PositiveNegativeFlag) as Fare_Amt
@@ -282,7 +292,8 @@ BEGIN
 	select distinct InventoryLegKey, Convert(datetime,Convert(varchar(12),DateAdd(day,0,@MYDateUTC-1),113)) AS CapturedDate,
 	DATEPART(DAYOFYEAR,@MYDateUTC-1) as dayOfYear,	DATEPART(DW,@MYDateUTC-1) as dayOfWeek,
 	Year(DepartureDate) as DepartureYear, DATENAME(MM,DepartureDate) as DepartureMonth, departureDate,
-	(CASE WHEN CarrierCode = 'D7' THEN 'XJ' ELSE CarrierCode END) CarrierCode, FlightNumber, A.DepartureStation, A.ArrivalStation,
+	(CASE WHEN isnull(carr_map.mappedcarrier ,A.CARRIERCODE) = 'D7' THEN 'XJ' ELSE isnull(carr_map.mappedcarrier ,A.CARRIERCODE) END) CarrierCode, 
+	A.FlightNumber, A.DepartureStation, A.ArrivalStation,
 	substring(citypairgroup,1,3) + SUBSTRING(CityPairGroup,5,3) as ODPAIR,
 	EquipmentType, EquipmentTypeSuffix, Cabin = 'Premium',
 	Capacity = case when EquipmentType = 320 and EquipmentTypeSuffix = 'A' then 0
@@ -299,12 +310,17 @@ BEGIN
 	Else '0' End
 	into #Inventory_AAX
 	from ods.InventoryLeg A
+	LEFT JOIN 
+	AAII_CARRIER_MAPPING carr_map
+	on carr_map.carriercode = A.carriercode
+	and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(A.flightnumber))
+	
 	left join dw.CityPair B on A.DepartureStation = B.DEpartureStation and A.ArrivalStation = B.ArrivalStation
 	--where DepartureDate between '2013-12-01' and @DepartureEnd
 	where DepartureDate between @departureStart and @departureEnd
-	and (CarrierCode = 'XJ' OR
-	ltrim(rtrim(CarrierCode))+ltrim(rtrim(FlightNumber)) = 'D7620' OR 
-		ltrim(rtrim(CarrierCode))+ltrim(rtrim(FlightNumber)) = 'D7621')
+	and (isnull(carr_map.mappedcarrier ,A.CARRIERCODE) = 'XJ' OR
+	ltrim(rtrim(isnull(carr_map.mappedcarrier ,A.CARRIERCODE)))+ltrim(rtrim(A.FlightNumber)) = 'D7620' OR 
+		ltrim(rtrim(isnull(carr_map.mappedcarrier ,A.CARRIERCODE)))+ltrim(rtrim(A.FlightNumber)) = 'D7621')
 	--and FlightNumber not in ('2994','2995','2996','2997','2998','2999')
 	and Lid >0
 	and status <>2
@@ -312,7 +328,8 @@ BEGIN
 	select distinct InventoryLegKey, Convert(datetime,Convert(varchar(12),DateAdd(day,0,@MYDateUTC-1),113)) AS CapturedDate,
 	DATEPART(DAYOFYEAR,@MYDateUTC-1) as dayOfYear,	DATEPART(DW,@MYDateUTC-1) as dayOfWeek,
 	Year(DepartureDate) as DepartureYear, DATENAME(MM,DepartureDate) as DepartureMonth, departureDate,
-	(CASE WHEN CarrierCode = 'D7' THEN 'XJ' ELSE CarrierCode END) CarrierCode, FlightNumber, A.DepartureStation, A.ArrivalStation,
+	(CASE WHEN isnull(carr_map.mappedcarrier ,A.CARRIERCODE) = 'D7' THEN 'XJ' ELSE isnull(carr_map.mappedcarrier ,A.CARRIERCODE) END) CarrierCode, 
+	A.FlightNumber, A.DepartureStation, A.ArrivalStation,
 	substring(citypairgroup,1,3) + SUBSTRING(CityPairGroup,5,3) as ODPAIR,
 	EquipmentType, EquipmentTypeSuffix, Cabin = 'Economy',
 	Capacity = case when EquipmentType = 320 and EquipmentTypeSuffix = 'A' then Capacity
@@ -329,12 +346,17 @@ BEGIN
 	when EquipmentType = 333 and EquipmentTypeSuffix = 'A' then (Capacity - 12)
 	Else '0' End
 	from ods.InventoryLeg A
+	LEFT JOIN 
+	AAII_CARRIER_MAPPING carr_map
+	on carr_map.carriercode = A.carriercode
+	and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(A.flightnumber))
+	
 	left join dw.CityPair B on A.DepartureStation = B.DEpartureStation and A.ArrivalStation = B.ArrivalStation
 	--where DepartureDate between '2013-12-01' and @DepartureEnd
 	where DepartureDate between @departureStart and @departureEnd
-	and (CarrierCode = 'XJ' OR
-	ltrim(rtrim(CarrierCode))+ltrim(rtrim(FlightNumber)) = 'D7620' OR 
-		ltrim(rtrim(CarrierCode))+ltrim(rtrim(FlightNumber)) = 'D7621')
+	and (isnull(carr_map.mappedcarrier ,A.CARRIERCODE) = 'XJ' OR
+	ltrim(rtrim(isnull(carr_map.mappedcarrier ,A.CARRIERCODE)))+ltrim(rtrim(A.FlightNumber)) = 'D7620' OR 
+		ltrim(rtrim(isnull(carr_map.mappedcarrier ,A.CARRIERCODE)))+ltrim(rtrim(A.FlightNumber)) = 'D7621')
 	--and FlightNumber not in ('2994','2995','2996','2997','2998','2999')
 	and Lid >0
 	and status <>2

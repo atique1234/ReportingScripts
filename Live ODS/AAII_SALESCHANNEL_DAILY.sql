@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [dbo].[AAII_SALESCHANNEL_DAILY]    Script Date: 10/26/2015 10:37:16 ******/
+/****** Object:  StoredProcedure [dbo].[AAII_SALESCHANNEL_DAILY]    Script Date: 10/22/2015 17:24:56 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -76,7 +76,7 @@ PJS.INTERNATIONAL,
 
 AR.ROLECODE,
 
-IL.CARRIERCODE,
+isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) CARRIERCODE,
 
 AG.ORGANIZATIONCODE,AG.LOCATIONCODE,
 
@@ -90,17 +90,17 @@ AC.NAME ARRIVALCOUNTRY,
 
 PJC.CURRENCYCODE,
 
-(CASE WHEN IL.CARRIERCODE IN ('AK','D7') THEN 'MYR'
+(CASE WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('AK','D7') THEN 'MYR'
 
-	  WHEN IL.CARRIERCODE IN ('FD','XJ') THEN 'THB'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('FD','XJ') THEN 'THB'
 
-	  WHEN IL.CARRIERCODE = 'QZ' THEN 'IDR'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'QZ' THEN 'IDR'
 
-	  WHEN IL.CARRIERCODE = 'XT' THEN 'USD'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'XT' THEN 'USD'
 
-	  WHEN IL.CARRIERCODE IN ('PQ','Z2') THEN 'PHP'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('PQ','Z2') THEN 'PHP'
 
-	  WHEN IL.CARRIERCODE = 'I5' THEN 'INR'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'I5' THEN 'INR'
 
 	  ELSE 'MYR' END) AOCCURRENCY,
 
@@ -165,6 +165,11 @@ PJL.INVENTORYLEGID = IL.INVENTORYLEGID
 
 AND IL.STATUS <> 2
 AND IL.LID > 0
+
+LEFT JOIN 
+AAII_CARRIER_MAPPING carr_map
+on carr_map.carriercode = il.carriercode
+and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(il.flightnumber))
 
 JOIN
 
@@ -236,7 +241,7 @@ PJS.INTERNATIONAL,
 
 AR.ROLECODE,
 
-IL.CARRIERCODE,
+isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) ,
 
 AG.ORGANIZATIONCODE,AG.LOCATIONCODE,
 
@@ -250,17 +255,17 @@ AC.NAME,
 
 PJC.CURRENCYCODE,
 
-(CASE WHEN IL.CARRIERCODE IN ('AK','D7') THEN 'MYR'
+(CASE WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('AK','D7') THEN 'MYR'
 
-	  WHEN IL.CARRIERCODE IN ('FD','XJ') THEN 'THB'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('FD','XJ') THEN 'THB'
 
-	  WHEN IL.CARRIERCODE = 'QZ' THEN 'IDR'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'QZ' THEN 'IDR'
 
-	  WHEN IL.CARRIERCODE = 'XT' THEN 'USD'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'XT' THEN 'USD'
 
-	  WHEN IL.CARRIERCODE IN ('PQ','Z2') THEN 'PHP'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) IN ('PQ','Z2') THEN 'PHP'
 
-	  WHEN IL.CARRIERCODE = 'I5' THEN 'INR'
+	  WHEN isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) = 'I5' THEN 'INR'
 
 	  ELSE 'MYR' END)
 

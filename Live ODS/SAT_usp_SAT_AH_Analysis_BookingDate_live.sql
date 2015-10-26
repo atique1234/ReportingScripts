@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [wb].[SAT_usp_SAT_AH_Analysis_BookingDate_live]    Script Date: 10/26/2015 10:41:44 ******/
+/****** Object:  StoredProcedure [wb].[SAT_usp_SAT_AH_Analysis_BookingDate_live]    Script Date: 10/23/2015 12:58:57 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -116,22 +116,22 @@ left join
 	ods.BookingPassenger bp with (nolock) 
 		on ab.BookingID = bp.BookingID
 inner join
-	(select PassengerID, SegmentID, InventoryLegID, DepartureStation, ArrivalStation, CarrierCode, CONVERT(DATE,DepartureDate) as DepartureDate, JourneyNumber,
-	FareClassOfService
-	from vw_PassengerJourneySegment with (nolock)
-	where BookingStatus = 'HK'
-	and CarrierCode in (select CarrierCode from ods.Carrier)--('AK','FD','D7','PQ','QZ','JW','Z2','I5','IL','BF')
+	(select t.PassengerID, t.SegmentID, t.InventoryLegID, t.DepartureStation, t.ArrivalStation, 	
+	isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode, 
+	CONVERT(DATE,t.DepartureDate) as DepartureDate, t.JourneyNumber,
+	t.FareClassOfService
+	from vw_PassengerJourneySegment t with (nolock)
+	LEFT JOIN 
+	AAII_CARRIER_MAPPING carr_map
+	on carr_map.carriercode = t.carriercode
+	and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+	
+	where t.BookingStatus = 'HK'
+	and t.CarrierCode in (select CarrierCode from ods.Carrier)--('AK','FD','D7','PQ','QZ','JW','Z2','I5','IL','BF')
+	
 	) pjs
 		on bp.PassengerID = pjs.PassengerID
-/*
-inner join		
-	ods.PassengerJourneyLeg pjl with (nolock)
-		on pjs.passengerid = pjl.passengerid
-		and pjs.SegmentID = pjl.SegmentID
-	
-	ods.InventoryLeg il with (nolock)
-		on il.inventorylegid = pjl.inventorylegid	
-*/
+		
 left join
 	(select distinct BookingID, ProvinceState from ods.BookingContact with (nolock)) bc
 	on bp.BookingID = bc.BookingID

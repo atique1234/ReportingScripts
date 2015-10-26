@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [wb].[SAT_usp_SAT_JK_Tinky_China]    Script Date: 10/26/2015 10:21:50 ******/
+/****** Object:  StoredProcedure [wb].[SAT_usp_SAT_JK_Tinky_China]    Script Date: 10/22/2015 17:11:35 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -36,9 +36,9 @@ GO
 -- Description:	<SAT_usp_AA_SalesChannel_Monthly>
 -- Sales Channel cleanup, everything changed by JK
 -- =============================================
-ALTER PROCEDURE [wb].[SAT_usp_SAT_JK_Tinky_China]
+--ALTER PROCEDURE [wb].[SAT_usp_SAT_JK_Tinky_China]
 
-AS
+--AS
 BEGIN
 
 	SET NOCOUNT ON;
@@ -64,7 +64,7 @@ BEGIN
 BEGIN TRY DROP TABLE #allBookings END TRY BEGIN CATCH END CATCH
 
 select pjs.PassengerID, pjs.SegmentID, pjs.DepartureStation, pjs.ArrivalStation, MarketGroup, pjs.DepartureStation+pjs.ArrivalStation as FlightPath, 
-pjs.DepartureDate, pjs.JourneyNumber, pjs.CarrierCode, pjs.FlightNumber, co.Name as Nationality,
+pjs.DepartureDate, pjs.JourneyNumber, isnull(carr_map.mappedcarrier ,pjs.CARRIERCODE) CarrierCode, pjs.FlightNumber, co.Name as Nationality,
 bk.BookingID, bk.RecordLocator, bk.CreatedAgentID, bk.CurrencyCode, 
 DATEADD(HH,+8,bk.BookingDate) as BookingDate, case when bp.Gender = 1 then 'Male' else 'Female' end as Gender, DATEDIFF(YEAR,DOB,GetDate()) as Age, bp.FirstName, bp.LastName,
 DATENAME(MONTH, DATEADD(HH,+8,bk.BookingDate)) as BookingMonth,
@@ -75,6 +75,11 @@ into #allBookings
 from ods.Booking bk with (nolock) 
 inner join ods.BookingPassenger bp with (nolock) on bk.BookingID = bp.BookingID
 inner join vw_PassengerJourneySegment pjs with (nolock) on bp.PassengerID = pjs.PassengerID
+LEFT JOIN 
+AAII_CARRIER_MAPPING carr_map
+on carr_map.carriercode = pjs.carriercode
+and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(pjs.flightnumber))
+		
 left join SAT_MarketGroupJK H on pjs.DepartureStation = H.DepartureStation and pjs.ArrivalStation = H.ArrivalStation
 left join ods.Country co on bp.Nationality = co.CountryCode
 where bk.Status in (2,3) and pjs.BookingStatus = 'HK'

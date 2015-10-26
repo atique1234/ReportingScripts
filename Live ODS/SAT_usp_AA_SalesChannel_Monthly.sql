@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [wb].[SAT_usp_AA_SalesChannel_Monthly]    Script Date: 10/26/2015 10:38:06 ******/
+/****** Object:  StoredProcedure [wb].[SAT_usp_AA_SalesChannel_Monthly]    Script Date: 10/22/2015 15:56:28 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -83,11 +83,15 @@ from ods.BookingPassenger with (nolock)) B
 on A.BookingID = B.BookingID
 
 inner join
-(select PassengerID, SegmentID, DepartureStation, ArrivalStation, DepartureStation+ArrivalStation as FlightPath, 
-DepartureDate, JourneyNumber, CarrierCode
-from vw_PassengerJourneySegment with (nolock)
+(select t.PassengerID, t.SegmentID, t.DepartureStation, t.ArrivalStation, t.DepartureStation+t.ArrivalStation as FlightPath, 
+t.DepartureDate, t.JourneyNumber, isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode
+from vw_PassengerJourneySegment t with (nolock)
+LEFT JOIN 
+AAII_CARRIER_MAPPING carr_map 
+on carr_map.carriercode = t.carriercode
+and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
 where BookingStatus = 'HK'
-and CarrierCode in (select CarrierCode from ods.Carrier)
+and isnull(carr_map.mappedcarrier ,t.CARRIERCODE) in (select CarrierCode from ods.Carrier)
 and DepartureStation+ArrivalStation not in ('BOMKUL','CHCKUL','DELKUL','DLCKUL','HRBKUL','IKAKUL','KULLGW','KULORY','KULTSN','MELPER','KULWUH',
 'KULBOM','KULCHC','KULDEL','KULDLC','KULHRB','KULIKA','LGWKUL','ORYKUL','TSNKUL','PERMEL','WUHKUL')) C
 on B.PassengerID = C.PassengerID

@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [wb].[SAT_Finance_RevenueByFlight_v3]    Script Date: 10/26/2015 10:15:29 ******/
+/****** Object:  StoredProcedure [wb].[SAT_Finance_RevenueByFlight_v3]    Script Date: 10/22/2015 12:53:27 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -56,7 +56,7 @@ BEGIN
 
 	BEGIN TRY TRUNCATE TABLE #SeatsSold_BaseRevRM DROP TABLE #SeatsSold_BaseRevRM END TRY BEGIN CATCH END CATCH 
 	select distinct @MYDateUTC as CapturedDate,
-	count(A.PassengerID) as SeatsSold, DepartureDate, CarrierCode, FlightNumber, Route, CurrencyCode,
+	count(A.PassengerID) as SeatsSold, DepartureDate, CarrierCode, FlightNumber,inventorylegid, Route, CurrencyCode,
 	sum((ISNULL(Fare_Amt,0) + ISNULL(Disc_Amt,0) + ISNULL(Promo_Amt,0))/ISNULL(L.ConversionRate,1)) as BaseFare_RM,
 	sum((ISNULL(Fuel_Amt,0))/ISNULL(L.ConversionRate,1)) as FuelSurcharge_RM,
 	sum((ISNULL(Fare_Amt,0) + ISNULL(Disc_Amt,0) + ISNULL(Promo_Amt,0))/ISNULL(M.ConversionRate,1)) as BaseFare_IDR,
@@ -74,13 +74,18 @@ BEGIN
 	into #SeatsSold_BaseRevRM
 	from
 		(select 
-		PassengerID, SegmentID, DepartureDate, 
-		DepartureStation+ArrivalStation as Route, CarrierCode, FlightNumber
-		from vw_PassengerJourneySegment
-		where BookingStatus = 'HK' 
-		and DepartureDate > @departureStart 
-		and DepartureDate <= @departureEnd
-		and CarrierCode in (select CarrierCode from ods.carrier where carriertype = 'H' and carriercode <> 'BF') --('AK','FD','QZ','D7','JW','PQ','Z2')
+		t.PassengerID, t.SegmentID, t.DepartureDate, 
+		t.DepartureStation+t.ArrivalStation as Route, isnull(carr_map.mappedcarrier ,t.CARRIERCODE)  CarrierCode, t.FlightNumber,t.inventorylegid
+		from vw_PassengerJourneySegment t
+		LEFT JOIN 
+		AAII_CARRIER_MAPPING carr_map 
+		on carr_map.carriercode = t.carriercode
+		and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+
+		where t.BookingStatus = 'HK' 
+		and t.DepartureDate > @departureStart 
+		and t.DepartureDate <= @departureEnd
+		and t.CarrierCode in (select CarrierCode from ods.carrier where carriertype = 'H' and carriercode <> 'BF')--('AK','FD','QZ','D7','JW','PQ','Z2')
 		) A
 	left join
 		(select PassengerID, BookingID
@@ -183,17 +188,17 @@ BEGIN
 		where FromCurrencyCode = 'USD') USD
 		on USD.ToCurrencyCode = CC.CurrencyCode 
 		and CAST(CONVERT(VARCHAR, CC.BookingDate,110) as datetime) = USD.ConversionDate			
-	group by DepartureDate, CarrierCode, FlightNumber, Route, CurrencyCode
+	group by DepartureDate, CarrierCode, FlightNumber, inventorylegid,Route, CurrencyCode
 	
 
-	--select * from #SeatsSold_BaseRevRM
+	--select * from #SeatsSold_BaseRevRM where carriercode = 'XT'
 	
 		
 	BEGIN TRY TRUNCATE TABLE #SeatsSold_BaseRevRM_RowNum DROP TABLE #SeatsSold_BaseRevRM_RowNum END TRY BEGIN CATCH END CATCH 
-	select distinct CapturedDate, SeatsSold, DepartureDate, CarrierCode, FlightNumber, Route, CurrencyCode,
+	select distinct CapturedDate, SeatsSold, DepartureDate, CarrierCode, FlightNumber, inventorylegid,Route, CurrencyCode,
 	BaseFare_RM, FuelSurcharge_RM, BaseFare_IDR, FuelSurcharge_IDR,	BaseFare_THB, FuelSurcharge_THB,
 	BaseFare_JPY, FuelSurcharge_JPY, BaseFare_PHP, FuelSurcharge_PHP, BaseFare_INR, FuelSurcharge_INR,BaseFare_USD, FuelSurcharge_USD,
-	ROW_NUMBER() over (partition by CarrierCode, FlightNumber, DepartureDate,Route Order By CarrierCode, FlightNumber, DepartureDate,Route)  As RowNO	
+	ROW_NUMBER() over (partition by CarrierCode, FlightNumber,inventorylegid, DepartureDate,Route Order By CarrierCode, FlightNumber, DepartureDate,Route)  As RowNO	
 	into #SeatsSold_BaseRevRM_RowNum
 	from  #SeatsSold_BaseRevRM
 	order by CarrierCode, FlightNumber, DepartureDate,Route
@@ -210,8 +215,9 @@ BEGIN
 	BaseFare_JPY, FuelSurcharge_JPY, BaseFare_PHP, FuelSurcharge_PHP, BaseFare_INR, FuelSurcharge_INR,BaseFare_USD, FuelSurcharge_USD, RowNO	
 	into #SeatsSold_BaseRevRM_Capacity_RowNum
 	from #SeatsSold_BaseRevRM_RowNum A
-	left join ods.InventoryLeg B on A.CarrierCode = B.CarrierCode and A.FlightNumber = B.FlightNumber
-		and A.Route = B.DepartureStation+B.ArrivalStation and A.DepartureDate = B.DepartureDate
+
+	left join ods.InventoryLeg B on A.inventorylegid = B.inventorylegid 
+	
 	left join ods.distance C on B.DepartureStation = C.DepartureStation and B.ArrivalStation = C.ArrivalStation
 	left join dw.citypair C2 on B.DepartureStation = C2.DepartureStation and B.ArrivalStation = C2.ArrivalStation --added citypair, used in case distance table don't have data
 	where A.RowNO = 1
@@ -282,8 +288,6 @@ BEGIN
 	order by CarrierCode, FlightNumber, DepartureDate
 	
 END
-
-
 
 
 

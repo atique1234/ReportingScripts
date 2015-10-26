@@ -1,12 +1,13 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [dbo].[AAII_FLIGHT_PAX_CAPACITY_BY_DEPARTURE]    Script Date: 10/26/2015 10:11:51 ******/
+/****** Object:  StoredProcedure [dbo].[AAII_FLIGHT_PAX_CAPACITY_BY_DEPARTURE]    Script Date: 10/22/2015 12:45:43 ******/
 SET ANSI_NULLS ON
 GO
 
 SET QUOTED_IDENTIFIER ON
 GO
+
 
 
 
@@ -53,8 +54,8 @@ where
 BEGIN TRY DROP TABLE #inventoryPax END TRY BEGIN CATCH END CATCH
 	
 select 
-il.departuredate,il.carriercode,il.flightnumber,
-il.departurestation,il.arrivalstation, pjs.international, il.capacity,
+il.departuredate,isnull(carr_map.mappedcarrier ,IL.CARRIERCODE) carriercode,
+il.flightnumber,il.departurestation,il.arrivalstation, pjs.international, il.capacity,
 COUNT(distinct pjs.segmentid) pax
 into #inventoryPax
  from 
@@ -73,7 +74,12 @@ ODS.BOOKING BK
 on
 BK.BOOKINGID = BP.BOOKINGID
 AND BK.STATUS IN (2,3)
-group by il.departuredate,il.carriercode,il.flightnumber,
+LEFT JOIN 
+AAII_CARRIER_MAPPING carr_map
+on carr_map.carriercode = il.carriercode
+and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(il.flightnumber))
+
+group by il.departuredate,isnull(carr_map.mappedcarrier ,IL.CARRIERCODE),il.flightnumber,
 il.departurestation,il.arrivalstation, pjs.international, il.capacity
 
 

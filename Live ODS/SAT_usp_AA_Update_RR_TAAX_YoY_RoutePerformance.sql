@@ -1,7 +1,7 @@
 USE [REZAKWB01]
 GO
 
-/****** Object:  StoredProcedure [wb].[SAT_usp_AA_Update_RR_TAAX_YoY_RoutePerformance]    Script Date: 10/26/2015 10:30:23 ******/
+/****** Object:  StoredProcedure [wb].[SAT_usp_AA_Update_RR_TAAX_YoY_RoutePerformance]    Script Date: 10/23/2015 12:23:17 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -88,18 +88,31 @@ BEGIN
 	--newly added
 	into Temp_TAAX_Weekly_Route_BaseRevRM
 	from
+	    ( select t.PassengerID, t.SegmentID,isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode,
+	     t.FlightNumber,t.Year,t.Month,t.WeekNumber,t.DepartureDate,t.Route,
+	     t.Cabin,t.CreatedDate
+	     from 
+	    
 		(select PassengerID, SegmentID, CarrierCode, FlightNumber, 
-		YEAR(DepartureDate) as Year, DATENAME(MM,DepartureDate) as Month, DATENAME(Week,DepartureDate) as WeekNumber,
-		DepartureDate, DepartureStation+ArrivalStation as Route,
-		Cabin = case when FareClassofService in ('C','D','G','J','G1') then 'Premium'
-		Else 'Economy' End,  CreatedDate
-		from vw_PassengerJourneySegment with (nolock)
-		where BookingStatus = 'HK' 
-		and DATEADD(HH,8,CreatedDate) < @BookingEnd
-		and DepartureDate >= @departureStart
-		and DepartureDate <= @departureEnd
-		and CarrierCode in ('XJ')
-		and FlightNumber not in ('2994','2995','2996','2997','2998','2999'))A
+			YEAR(DepartureDate) as Year, DATENAME(MM,DepartureDate) as Month, DATENAME(Week,DepartureDate) as WeekNumber,
+			DepartureDate, DepartureStation+ArrivalStation as Route,
+			Cabin = case when FareClassofService in ('C','D','G','J','G1') then 'Premium'
+			Else 'Economy' End,  CreatedDate
+			from vw_PassengerJourneySegment with (nolock)
+			where BookingStatus = 'HK' 
+			and DATEADD(HH,8,CreatedDate) < @BookingEnd
+			and DepartureDate >= @departureStart
+			and DepartureDate <= @departureEnd
+			
+			and ltrim(rtrim(FlightNumber)) not in ('2994','2995','2996','2997','2998','2999')
+		) t
+		LEFT JOIN 
+		AAII_CARRIER_MAPPING carr_map
+		on carr_map.carriercode = t.carriercode
+		and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+		Where  isnull(carr_map.mappedcarrier ,t.CARRIERCODE)  in ('XJ')
+		
+		)A
 	left join
 		(select 
 		PassengerID, SegmentID, CurrencyCode
@@ -251,6 +264,9 @@ BEGIN
 	--newly added
 	into Temp_TAAX_Weekly_Route_Y1_BaseRevRM
 	from
+		(select  t.PassengerID, t.SegmentID,isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode,
+	     t.FlightNumber,t.Year,t.Month,t.WeekNumber,t.DepartureDate,t.Route,
+	     t.Cabin,t.CreatedDate from
 		(select PassengerID, SegmentID, CarrierCode, FlightNumber, 
 		YEAR(DepartureDate) as Year, DATENAME(MM,DepartureDate) as Month, DATENAME(Week,DepartureDate) as WeekNumber,
 		DepartureDate, DepartureStation+ArrivalStation as Route,
@@ -260,8 +276,15 @@ BEGIN
 		where DATEADD(HH,8,CreatedDate) < @BookingEnd_Y1
 		and DepartureDate >= @departureStart_Y1
 		and DepartureDate <= @departureEnd_Y1
-		and CarrierCode in ('XJ')
-		and FlightNumber not in ('2994','2995','2996','2997','2998','2999'))A
+		
+		and ltrim(rtrim(FlightNumber)) not in ('2994','2995','2996','2997','2998','2999')
+		) t
+		LEFT JOIN 
+		AAII_CARRIER_MAPPING carr_map
+		on carr_map.carriercode = t.carriercode
+		and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+		Where isnull(carr_map.mappedcarrier ,t.CARRIERCODE) in ('XJ')
+		)A
 	left join
 		(select 
 		PassengerID, SegmentID, CurrencyCode
@@ -413,17 +436,27 @@ BEGIN
 	--newly added
 	into Temp_TAAX_Weekly_Route_Y1M_BaseRevRM
 	from
+	    (select  t.PassengerID, t.SegmentID,isnull(carr_map.mappedcarrier ,t.CARRIERCODE) CarrierCode,
+	     t.FlightNumber,t.Year,t.Month,t.WeekNumber,t.DepartureDate,t.Route,
+	     t.Cabin,t.CreatedDate from
 		(select PassengerID, SegmentID, CarrierCode, FlightNumber, 
-		YEAR(DepartureDate) as Year, DATENAME(MM,DepartureDate) as Month, DATENAME(Week,DepartureDate) as WeekNumber,
-		DepartureDate, DepartureStation+ArrivalStation as Route,
-		Cabin = case when FareClassofService in ('C','D','G','J') then 'Premium'
-		Else 'Economy' End,  CreatedDate
-		from vw_PassengerJourneySegment with (nolock)
-		where DATEADD(HH,8,CreatedDate) <= @BookingEnd_Y1M
-		and DepartureDate >= @departureStart_Y1
-		and DepartureDate <= @departureEnd_Y1
-		and CarrierCode in ('XJ')
-		and FlightNumber not in ('2994','2995','2996','2997','2998','2999'))A
+			YEAR(DepartureDate) as Year, DATENAME(MM,DepartureDate) as Month, DATENAME(Week,DepartureDate) as WeekNumber,
+			DepartureDate, DepartureStation+ArrivalStation as Route,
+			Cabin = case when FareClassofService in ('C','D','G','J') then 'Premium'
+			Else 'Economy' End,  CreatedDate
+			from vw_PassengerJourneySegment with (nolock)
+			where DATEADD(HH,8,CreatedDate) <= @BookingEnd_Y1M
+			and DepartureDate >= @departureStart_Y1
+			and DepartureDate <= @departureEnd_Y1
+			
+			and ltrim(rtrim(FlightNumber)) not in ('2994','2995','2996','2997','2998','2999')
+		)t
+		LEFT JOIN 
+			AAII_CARRIER_MAPPING carr_map
+			on carr_map.carriercode = t.carriercode
+			and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(t.flightnumber))
+			where isnull(carr_map.mappedcarrier ,t.CARRIERCODE) in ('XJ')
+		)A
 	left join
 		(select 
 		PassengerID, SegmentID, CurrencyCode
@@ -710,7 +743,8 @@ BEGIN
 		----* Capacity *----
 			
 	BEGIN TRY TRUNCATE TABLE #temp_Inventory DROP TABLE  #temp_Inventory  END TRY BEGIN CATCH END CATCH
-	select distinct DepartureDate, CarrierCode, FlightNumber, DepartureStation, ArrivalStation,
+	select distinct DepartureDate, isnull(carr_map.mappedcarrier ,il.CARRIERCODE) CarrierCode, 
+	il.FlightNumber, DepartureStation, ArrivalStation,
 	EquipmentType, EquipmentTypeSuffix, Cabin = 'Premium',
 	Capacity = case when EquipmentType = 320 and EquipmentTypeSuffix = 'A' then 0
 	when EquipmentType = 733 and EquipmentTypeSuffix = 'A' then 0
@@ -724,13 +758,19 @@ BEGIN
 	when EquipmentType = 332 and EquipmentTypeSuffix = 'A' then 24
 	Else '0' End
 	into #temp_Inventory
-	from ods.InventoryLeg
+	from ods.InventoryLeg il
+	LEFT JOIN 
+	AAII_CARRIER_MAPPING carr_map
+	on carr_map.carriercode = il.carriercode
+	and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(il.flightnumber))
+		
 	where DepartureDate between @departureStart_Y1 and @DepartureEnd
 	and Status <> 2
 	and Lid >0
-	and FlightNumber not in ('2994','2995','2996','2997','2998','2999')
+	and ltrim(rtrim(il.FlightNumber)) not in ('2994','2995','2996','2997','2998','2999')
 	union
-	select distinct DepartureDate, CarrierCode, FlightNumber, DepartureStation, ArrivalStation,
+	select distinct DepartureDate, isnull(carr_map.mappedcarrier ,il.CARRIERCODE) CarrierCode, 
+	il.FlightNumber, DepartureStation, ArrivalStation,
 	EquipmentType, EquipmentTypeSuffix, Cabin = 'Economy',
 	Capacity = case when EquipmentType = 320 and EquipmentTypeSuffix = 'A' then Capacity
 	when EquipmentType = 733 and EquipmentTypeSuffix = 'A' then Capacity
@@ -743,11 +783,16 @@ BEGIN
 	when EquipmentType = 340 and EquipmentTypeSuffix = 'B' then (Capacity - 18)
 	when EquipmentType = 332 and EquipmentTypeSuffix = 'A' then (Capacity - 24)
 	Else '0' End
-	from ods.InventoryLeg
+	from ods.InventoryLeg il
+	LEFT JOIN 
+	AAII_CARRIER_MAPPING carr_map
+	on carr_map.carriercode = il.carriercode
+	and ltrim(RTRIM(carr_map.flightnumber)) = ltrim(RTRIM(il.flightnumber))
+	
 	where DepartureDate between @departureStart_Y1 and @DepartureEnd
 	and Status <> 2
 	and Lid >0
-	and FlightNumber not in ('2994','2995','2996','2997','2998','2999')
+	and ltrim(rtrim(il.FlightNumber)) not in ('2994','2995','2996','2997','2998','2999')
 
 
 	--select sum(Capacity) as Lid, CarrierCode, FlightNumber, DepartureStation+ArrivalStation as Route,
